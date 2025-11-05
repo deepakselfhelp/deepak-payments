@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Join Game & Relations Pro Community</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Poppins', sans-serif;
+      background-color: #0a0a0a;
+      color: #fff;
+    }
+
+    .container {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      gap: 30px;
+    }
+
+    .left {
+      flex: 1 1 55%;
+      box-sizing: border-box;
+    }
+
+    .right {
+      flex: 1 1 40%;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: center;
+    }
+
+    h1 {
+      font-size: 32px;
+      color: #f5b800;
+      margin-bottom: 10px;
+    }
+
+    h2 {
+      color: #f5b800;
+      margin-top: 0;
+    }
+
+    p {
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 20px 0;
+    }
+
+    ul li::before {
+      content: "✅ ";
+      color: #f5b800;
+    }
+
+    .hero {
+      display: block;
+      margin: 30px auto;
+      width: 85%;
+      max-width: 650px;
+      border-radius: 12px;
+      box-shadow: 0 0 25px rgba(245,184,0,0.25);
+    }
+
+    .checkout-box {
+      background: #111;
+      border: 2px solid #f5b800;
+      border-radius: 12px;
+      padding: 30px;
+      text-align: center;
+      box-shadow: 0 0 25px rgba(245,184,0,0.25);
+      margin-top: 20px;
+      position: relative;
+    }
+
+    /* 🧭 Input Styling */
+    input {
+      width: 90%;
+      padding: 12px 14px;
+      margin: 8px 0;
+      border-radius: 10px;
+      border: 1px solid rgba(245,184,0,0.5);
+      background-color: #0a0a0a;
+      color: #fff;
+      font-size: 15px;
+      box-shadow: 0 0 8px rgba(245,184,0,0.15);
+      transition: all 0.3s ease;
+    }
+
+    input::placeholder {
+      color: #aaa;
+      font-size: 14px;
+    }
+
+    input:focus {
+      border-color: #f5b800;
+      box-shadow: 0 0 12px rgba(245,184,0,0.4);
+      outline: none;
+    }
+
+    /* 💳 Button Styling */
+    button {
+      background: linear-gradient(135deg, #f5b800, #ffcc33);
+      color: #000;
+      font-weight: bold;
+      border: none;
+      padding: 14px 22px;
+      border-radius: 10px;
+      cursor: pointer;
+      margin-top: 12px;
+      font-size: 16px;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 12px rgba(245,184,0,0.4);
+    }
+
+    button:hover {
+      background: linear-gradient(135deg, #ffcc33, #ffe066);
+      box-shadow: 0 0 20px rgba(245,184,0,0.6);
+      transform: translateY(-2px);
+    }
+
+    footer {
+      text-align: center;
+      font-size: 13px;
+      color: #aaa;
+      margin: 40px 0 10px;
+    }
+
+    a {
+      color: #f5b800;
+      text-decoration: none;
+    }
+
+    /* ---------- Mobile Layout Fix ---------- */
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        padding: 20px;
+      }
+
+      .right {
+        order: 1;
+        width: 100%;
+      }
+
+      .left {
+        order: 2;
+        width: 100%;
+      }
+
+      .checkout-box {
+        width: 95%;
+        margin: 0 auto 25px;
+      }
+
+      .hero {
+        width: 95%;
+        max-width: 400px;
+        margin: 20px auto;
+      }
+
+      ul {
+        text-align: left;
+        display: inline-block;
+      }
+
+      input {
+        width: 100%;
+        font-size: 16px;
+        padding: 14px;
+      }
+    }
+  </style>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</head>
+
+<body>
+
+  <!-- Logo -->
+  <div style="text-align:center; padding:30px 0 10px; background:#0a0a0a;">
+    <img src="logo.png" alt="Deepak Logo" style="width:800px; height:auto; filter: drop-shadow(0 0 8px rgba(245,184,0,0.4));">
+  </div>
+
+  <div class="container">
+    <!-- RIGHT SIDE (CHECKOUT BOX) -->
+    <div class="right">
+      <div class="checkout-box">
+        <h2>💳 Pay Securely</h2>
+        <p><strong>Select your plan</strong> and complete checkout below.<br><br>
+          <span style="font-size:14px; color:#ccc;">💡 Please use the <strong>same email</strong> as your community login.</span>
+        </p>
+
+        <input type="text" id="userName" placeholder="Your Name" required>
+        <input type="email" id="userEmail" placeholder="Your Email" required>
+        <input type="tel" id="userPhone" placeholder="Your Phone" required>
+
+        <button onclick="startRazorpayCheckout()">Pay ₹699 Now</button>
+      </div>
+    </div>
+
+    <!-- LEFT SIDE -->
+    <div class="left">
+      <h1>🔥 Join Game & Relations Pro Community</h1>
+      <p>Break free from fear, overthinking, and frustration. Learn real confidence and authentic attraction.</p>
+
+      <img src="hero.png" alt="Hero Image" class="hero">
+
+      <ul>
+        <li>Private coaching and mentoring</li>
+        <li>Exclusive in-field breakdowns</li>
+        <li>Lifetime access to premium video lessons</li>
+        <li>Private Telegram mastermind group</li>
+      </ul>
+    </div>
+  </div>
+
+  <footer>
+    Need help? Contact <a href="mailto:support@yourdomain.com">support@yourdomain.com</a><br>
+    © Deepak 2025 — All Rights Reserved.
+  </footer>
+
+  <script>
+    async function startRazorpayCheckout() {
+      const userName = document.getElementById("userName").value.trim();
+      const userEmail = document.getElementById("userEmail").value.trim();
+      const userPhone = document.getElementById("userPhone").value.trim();
+
+      if (!userName || !userEmail || !userPhone) {
+        alert("Please fill all fields before proceeding.");
+        return;
+      }
+
+      const res = await fetch("/api/razorpay/create-subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: userName, email: userEmail, phone: userPhone }),
+      });
+
+      const data = await res.json();
+      if (!data.id) {
+        alert("Error creating subscription. Please try again.");
+        return;
+      }
+
+      const options = {
+        key: data.key,
+        subscription_id: data.id,
+        name: "Deepak Academy",
+        description: "HindiPro Subscription (₹699/month)",
+        image: "logo.png",
+        prefill: { name: userName, email: userEmail, contact: userPhone },
+        theme: { color: "#F5B800" },
+      };
+
+      const rzp = new Razorpay(options);
+      rzp.open();
+    }
+  </script>
+</body>
+</html>
