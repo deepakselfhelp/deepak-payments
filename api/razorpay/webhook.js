@@ -1,4 +1,4 @@
-// ✅ Deepak Razorpay Webhook — All major events + Telegram alerts + clean logs
+// ✅ Deepak Razorpay Webhook — All major events + Telegram alerts + clean logs (Fixed regex)
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -13,12 +13,12 @@ export default async function handler(req, res) {
 
     console.log(`📬 Received Razorpay Event: ${event}`);
 
-    // 🧠 Escape MarkdownV2 special characters for Telegram
+    // 🧠 Helper: Escape MarkdownV2 special characters (✅ fixed regex)
     function escapeMarkdownV2(text) {
-      return text.replace(/([_*\[\]()~`>#+\\-=|{}.!])/g, '\\$1');
+      return text.replace(/([_*\[\]()~`>#+\-=|{}.!\\])/g, '\\$1');
     }
 
-    // 🧩 Telegram message sender
+    // 🧩 Helper: Send Telegram message
     async function sendTelegramMessage(text) {
       const botToken = process.env.TELEGRAM_BOT_TOKEN;
       const chatId = process.env.TELEGRAM_CHAT_ID;
@@ -147,6 +147,7 @@ ${failedRebill ? "🚨 *Subscription Failed After Multiple Rebill Attempts!*" : 
     // ⏳ Ensure logs flush
     await new Promise((r) => setTimeout(r, 500));
     res.status(200).json({ status: "ok" });
+
   } catch (err) {
     console.error("❌ [Webhook Error]:", err);
     res.status(500).json({ status: "error", error: err.message });
