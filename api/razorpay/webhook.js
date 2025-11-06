@@ -125,7 +125,12 @@ export default async function handler(req, res) {
         reason.includes("multiple failed rebill") || reason.includes("failed payment");
 
       // 🧩 Try to pull email from customer details if available
-      const email = subscription.customer_notify_email || subscription.customer_email || "N/A";
+const email =
+  subscription.customer_notify_email ||
+  subscription.customer_email ||
+  subscription.customer_details?.email ||
+  subscription.notes?.email ||
+  "N/A";
 
       const message = escapeMarkdownV2(`
 🏦 *Source:* Razorpay
@@ -153,3 +158,4 @@ ${failedRebill ? "🚨 *Subscription Failed After Multiple Rebill Attempts!*" : 
     res.status(500).json({ status: "error", error: err.message });
   }
 }
+
