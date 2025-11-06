@@ -84,52 +84,6 @@
       position: relative;
     }
 
-    /* 🧭 Input Styling */
-    input {
-      width: 90%;
-      padding: 12px 14px;
-      margin: 8px 0;
-      border-radius: 10px;
-      border: 1px solid rgba(245,184,0,0.5);
-      background-color: #0a0a0a;
-      color: #fff;
-      font-size: 15px;
-      box-shadow: 0 0 8px rgba(245,184,0,0.15);
-      transition: all 0.3s ease;
-    }
-
-    input::placeholder {
-      color: #aaa;
-      font-size: 14px;
-    }
-
-    input:focus {
-      border-color: #f5b800;
-      box-shadow: 0 0 12px rgba(245,184,0,0.4);
-      outline: none;
-    }
-
-    /* 💳 Button Styling */
-    button {
-      background: linear-gradient(135deg, #f5b800, #ffcc33);
-      color: #000;
-      font-weight: bold;
-      border: none;
-      padding: 14px 22px;
-      border-radius: 10px;
-      cursor: pointer;
-      margin-top: 12px;
-      font-size: 16px;
-      transition: all 0.3s ease;
-      box-shadow: 0 0 12px rgba(245,184,0,0.4);
-    }
-
-    button:hover {
-      background: linear-gradient(135deg, #ffcc33, #ffe066);
-      box-shadow: 0 0 20px rgba(245,184,0,0.6);
-      transform: translateY(-2px);
-    }
-
     footer {
       text-align: center;
       font-size: 13px;
@@ -151,6 +105,7 @@
         padding: 20px;
       }
 
+      /* ✅ Show RIGHT side (payment box) first on mobile */
       .right {
         order: 1;
         width: 100%;
@@ -176,17 +131,9 @@
         text-align: left;
         display: inline-block;
       }
-
-      input {
-        width: 100%;
-        font-size: 16px;
-        padding: 14px;
-      }
     }
   </style>
-  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
-
 <body>
 
   <!-- Logo -->
@@ -195,19 +142,26 @@
   </div>
 
   <div class="container">
-    <!-- RIGHT SIDE (CHECKOUT BOX) -->
+    <!-- RIGHT SIDE (CHECKOUT) -->
     <div class="right">
       <div class="checkout-box">
-        <h2>💳 Pay Securely</h2>
-        <p><strong>Select your plan</strong> and complete checkout below.<br><br>
-          <span style="font-size:14px; color:#ccc;">💡 Please use the <strong>same email</strong> as your community login.</span>
+        <h2>💳 Subscribe Securely</h2>
+        <p>
+          <strong>Select your plan</strong> and complete checkout below.<br><br>
+          <span style="font-size:14px; color:#ccc;">
+            💡 Please use the <strong>same email</strong> you use in the community.  
+            It helps us activate your Pro access faster.
+          </span>
         </p>
-
-        <input type="text" id="userName" placeholder="Your Name" required>
-        <input type="email" id="userEmail" placeholder="Your Email" required>
-        <input type="tel" id="userPhone" placeholder="Your Phone" required>
-
-        <button onclick="startRazorpayCheckout()">Pay ₹699 Now</button>
+        <form>
+          <!-- 🔥 Replace this with your real test/live subscription button -->
+          <script
+            src="https://cdn.razorpay.com/static/widget/subscription-button.js"
+            data-subscription_button_id="pl_RcOJw7zOY7771T"
+            data-button_theme="brand-color"
+            async>
+          </script>
+        </form>
       </div>
     </div>
 
@@ -222,52 +176,28 @@
         <li>Private coaching and mentoring</li>
         <li>Exclusive in-field breakdowns</li>
         <li>Lifetime access to premium video lessons</li>
-        <li>Private Telegram mastermind group</li>
+        <li>Game & Relationship Pro Community</li>
       </ul>
+
+      <div class="testimonials">
+        <div class="testimonial">
+          <img src="testimonial1.jpg" alt="Client 1" style="width:80px;height:80px;border-radius:50%;margin-bottom:10px;">
+          <p>“Deepak changed how I see social confidence forever.”</p>
+          <strong>— Amit, Bangalore</strong>
+        </div>
+        <div class="testimonial">
+          <img src="testimonial2.jpg" alt="Client 2" style="width:80px;height:80px;border-radius:50%;margin-bottom:10px;">
+          <p>“The only coach who shows real proof and transformation.”</p>
+          <strong>— Michael, London</strong>
+        </div>
+      </div>
     </div>
   </div>
 
   <footer>
-    Need help? Contact <a href="mailto:support@yourdomain.com">support@yourdomain.com</a><br>
+    Need help? Contact <a href="mailto:support@realcoachdeepak.com">support@realcoachdeepak.com</a><br>
     © Deepak 2025 — All Rights Reserved.
   </footer>
 
-  <script>
-    async function startRazorpayCheckout() {
-      const userName = document.getElementById("userName").value.trim();
-      const userEmail = document.getElementById("userEmail").value.trim();
-      const userPhone = document.getElementById("userPhone").value.trim();
-
-      if (!userName || !userEmail || !userPhone) {
-        alert("Please fill all fields before proceeding.");
-        return;
-      }
-
-      const res = await fetch("/api/razorpay/create-subscription", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: userName, email: userEmail, phone: userPhone }),
-      });
-
-      const data = await res.json();
-      if (!data.id) {
-        alert("Error creating subscription. Please try again.");
-        return;
-      }
-
-      const options = {
-        key: data.key,
-        subscription_id: data.id,
-        name: "Deepak Academy",
-        description: "HindiPro Subscription (₹699/month)",
-        image: "logo.png",
-        prefill: { name: userName, email: userEmail, contact: userPhone },
-        theme: { color: "#F5B800" },
-      };
-
-      const rzp = new Razorpay(options);
-      rzp.open();
-    }
-  </script>
 </body>
 </html>
