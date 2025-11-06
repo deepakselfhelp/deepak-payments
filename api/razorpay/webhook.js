@@ -1,5 +1,4 @@
-// ✅ Deepak Razorpay Webhook
-// Handles all key Razorpay events + Telegram alerts + clean logging
+// ✅ Deepak Razorpay Webhook — All major events + Telegram alerts + clean logs
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -14,12 +13,12 @@ export default async function handler(req, res) {
 
     console.log(`📬 Received Razorpay Event: ${event}`);
 
-    // 🧠 Helper: Escape MarkdownV2 characters for Telegram
+    // 🧠 Escape MarkdownV2 special characters for Telegram
     function escapeMarkdownV2(text) {
-      return text.replace(/([_*\[\]()~`>#+\-=|{}.!])/g, '\\$1');
+      return text.replace(/([_*\[\]()~`>#+\\-=|{}.!])/g, '\\$1');
     }
 
-    // 🧩 Helper: Send Telegram message
+    // 🧩 Telegram message sender
     async function sendTelegramMessage(text) {
       const botToken = process.env.TELEGRAM_BOT_TOKEN;
       const chatId = process.env.TELEGRAM_CHAT_ID;
@@ -29,19 +28,15 @@ export default async function handler(req, res) {
       }
 
       try {
-        const resp = await fetch(
-          `https://api.telegram.org/bot${botToken}/sendMessage`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: chatId,
-              text,
-              parse_mode: "MarkdownV2",
-            }),
-          }
-        );
-
+        const resp = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text,
+            parse_mode: "MarkdownV2",
+          }),
+        });
         const data = await resp.json();
         console.log("🔎 Telegram API result:", data);
       } catch (err) {
@@ -53,14 +48,11 @@ export default async function handler(req, res) {
     if (event === "payment.captured" && payment) {
       const amount = (payment.amount / 100).toFixed(2);
       const currency = payment.currency || "INR";
-      const email = payment.email || payment.contact || "N/A";
+      const email = payment.email || "N/A";
       const contact = payment.contact || "N/A";
       const notes = payment.notes || {};
       const product =
-        notes.product ||
-        notes.plan_name ||
-        notes.subscription_name ||
-        "Subscription (via Razorpay Button)";
+        notes.product || notes.plan_name || notes.subscription_name || "Subscription (via Razorpay Button)";
 
       const message = escapeMarkdownV2(`
 🏦 *Source:* Razorpay
@@ -99,7 +91,7 @@ export default async function handler(req, res) {
       console.log(`🔁 [Renewal] Subscription ${subId} charged successfully.`);
     }
 
-    // ⚠️ 3️⃣ Payment Failed (could be initial or rebill)
+    // ⚠️ 3️⃣ Payment Failed (initial or rebill)
     if (event === "payment.failed" && payment) {
       const amount = (payment.amount / 100).toFixed(2);
       const currency = payment.currency || "INR";
@@ -128,18 +120,18 @@ export default async function handler(req, res) {
           : subscription.plan_id) ||
         "Razorpay Plan";
       const subId = subscription.id;
-      const reason =
-        subscription.cancel_reason ||
-        "Cancelled manually or after failed rebills";
-
+      const reason = subscription.cancel_reason || "Cancelled manually or after failed rebills";
       const failedRebill =
-        reason.includes("multiple failed rebill") ||
-        reason.includes("failed payment");
+        reason.includes("multiple failed rebill") || reason.includes("failed payment");
+
+      // 🧩 Try to pull email from customer details if available
+      const email = subscription.customer_notify_email || subscription.customer_email || "N/A";
 
       const message = escapeMarkdownV2(`
 🏦 *Source:* Razorpay
 ${failedRebill ? "🚨 *Subscription Failed After Multiple Rebill Attempts!*" : "🚫 *Subscription Cancelled*"}
 📦 *Product:* ${planName}
+📧 *Email:* ${email}
 🧾 *Subscription ID:* ${subId}
 ❌ *Reason:* ${reason}
 `);
@@ -152,10 +144,9 @@ ${failedRebill ? "🚨 *Subscription Failed After Multiple Rebill Attempts!*" : 
       );
     }
 
-    // 🕓 Allow logs to flush before closing
+    // ⏳ Ensure logs flush
     await new Promise((r) => setTimeout(r, 500));
     res.status(200).json({ status: "ok" });
-
   } catch (err) {
     console.error("❌ [Webhook Error]:", err);
     res.status(500).json({ status: "error", error: err.message });
