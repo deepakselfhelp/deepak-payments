@@ -1,5 +1,5 @@
 // ✅ /api/razorpay/webhook.js
-// Handles Razorpay payment webhooks and sends Telegram notifications
+// Handles Razorpay webhooks and logs Telegram response for debugging
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -9,13 +9,12 @@ export default async function handler(req, res) {
   try {
     const body = req.body;
 
-    // 🔍 Extract the event type
+    // Extract event type and payment details
     const event = body.event;
     const payment = body.payload?.payment?.entity;
 
     console.log("Received webhook event:", event);
 
-    // ✅ Process successful payments only
     if (event === "payment.captured" && payment) {
       const amount = (payment.amount / 100).toFixed(2);
       const currency = payment.currency || "INR";
@@ -23,14 +22,14 @@ export default async function handler(req, res) {
       const contact = payment.contact || "N/A";
       const notes = payment.notes || {};
 
-      // 🔹 Try to extract product info from notes or fallback
+      // Product name (if available)
       const product =
         notes.product ||
         notes.plan_name ||
         notes.subscription_name ||
         "Subscription (via Razorpay Button)";
 
-      // 🧾 Build Telegram message
+      // Telegram message text
       const message = `
 💰 *New Payment Captured*
 📦 *Product:* ${product}
@@ -40,32 +39,39 @@ export default async function handler(req, res) {
 🆔 *Payment ID:* ${payment.id}
 `;
 
-      // 📨 Send Telegram notification
       const botToken = process.env.TELEGRAM_BOT_TOKEN;
       const chatId = process.env.TELEGRAM_CHAT_ID;
 
       if (botToken && chatId) {
-        await fetch(
-          `https://api.telegram.org/bot${botToken}/sendMessage`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: chatId,
-              text: message,
-              parse_mode: "Markdown",
-            }),
-          }
-        );
+        // 📨 Send Telegram message with logging
+        try {
+          const tgResponse = await fetch(
+            `https://api.telegram.org/bot${botToken}/sendMessage`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                chat_id: chatId,
+                text: message,
+                parse_mode: "Markdown",
+              }),
+            }
+          );
+
+          const tgResult = await tgResponse.json();
+          console.log("🔎 Telegram API result:", tgResult);
+        } catch (err) {
+          console.error("❌ Telegram send error:", err);
+        }
       } else {
         console.warn("⚠️ Telegram credentials missing in environment variables.");
       }
 
-      console.log("✅ Payment captured and Telegram message sent.");
+      console.log("✅ Payment captured and Telegram message attempted.");
     }
 
-    // Respond OK to Razorpay
-    res.status(200).json({ status: "success" });
+    // Respond to Razorpay
+    res.status(200).json({ status: "ok" });
   } catch (err) {
     console.error("❌ Error processing webhook:", err);
     res.status(500).json({ status: "error", error: err.message });
