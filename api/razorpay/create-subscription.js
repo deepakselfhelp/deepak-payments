@@ -1,29 +1,34 @@
-// File: /api/razorpay/create-subscription.js
+// ✅ /api/razorpay/create-subscription.js
+// Creates a Razorpay subscription (Test or Live based on env vars)
 
 export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
   try {
     const { name, email, phone } = req.body;
 
     const key_id = process.env.RAZORPAY_KEY_ID;
     const key_secret = process.env.RAZORPAY_KEY_SECRET;
 
-    // 🟡 Replace this with your actual plan_id from Razorpay Dashboard
-    const plan_id = "plan_RaTP2x2MeJxdco"; 
+    // 🟡 Your Plan ID from Razorpay dashboard (use test plan for testing)
+    const plan_id = process.env.RAZORPAY_PLAN_ID || "plan_RaTP2x2MeJxdco";
 
-    // Create the subscription details
+    // ✅ Subscription Data
     const subscriptionData = {
       plan_id,
-      total_count: 400, // e.g., 12 billing cycles (you can remove this for indefinite)
+      total_count: 400, // large number = effectively "indefinite"
       customer_notify: 1,
-      notes: { 
-        name, 
-        email, 
-        phone, 
-        product: "HindiPro Subscription (₹699/month)"
+      notes: {
+        name,
+        email,
+        phone,
+        product: "HindiPro Monthly Subscription (₹699)",
       },
     };
 
-    // Send the request to Razorpay API
+    // ✅ Razorpay API request
     const subResponse = await fetch("https://api.razorpay.com/v1/subscriptions", {
       method: "POST",
       headers: {
@@ -37,23 +42,20 @@ export default async function handler(req, res) {
     const subscription = await subResponse.json();
 
     if (subscription.error) {
-      console.error("Razorpay Error:", subscription.error);
+      console.error("Razorpay error:", subscription.error);
       return res.status(400).json({ error: subscription.error });
     }
 
-    // Send response back to frontend
+    // ✅ Send back to frontend
     res.status(200).json({
-      id: subscription.id,
-      key: key_id,
-      name,
-      email,
-      phone,
-      product: "HindiPro Subscription (₹699/month)",
-      message: "Subscription created successfully.",
+      success: true,
+      subscription_id: subscription.id,
+      plan_id: plan_id,
+      key_id: key_id,
+      message: "Subscription created successfully",
     });
-
-  } catch (err) {
-    console.error("Error creating subscription:", err);
-    res.status(500).json({ error: "Failed to create subscription" });
+  } catch (error) {
+    console.error("Error creating subscription:", error);
+    res.status(500).json({ error: error.message });
   }
 }
