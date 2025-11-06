@@ -1,5 +1,5 @@
 // ✅ /api/razorpay/webhook.js
-// Handles Razorpay webhooks and logs Telegram response for debugging
+// Razorpay webhook → Telegram notification (MarkdownV2 safe)
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -8,12 +8,15 @@ export default async function handler(req, res) {
 
   try {
     const body = req.body;
-
-    // Extract event type and payment details
     const event = body.event;
     const payment = body.payload?.payment?.entity;
 
     console.log("Received webhook event:", event);
+
+    // 🧠 Helper to escape MarkdownV2 special characters
+    function escapeMarkdownV2(text) {
+      return text.replace(/([_*\[\]()~`>#+\-=|{}.!])/g, '\\$1');
+    }
 
     if (event === "payment.captured" && payment) {
       const amount = (payment.amount / 100).toFixed(2);
@@ -22,28 +25,26 @@ export default async function handler(req, res) {
       const contact = payment.contact || "N/A";
       const notes = payment.notes || {};
 
-      // Product name (if available)
       const product =
         notes.product ||
         notes.plan_name ||
         notes.subscription_name ||
         "Subscription (via Razorpay Button)";
 
-      // Telegram message text
-      const message = `
+      // ✅ Escape message for MarkdownV2 safety
+      const message = escapeMarkdownV2(`
 💰 *New Payment Captured*
 📦 *Product:* ${product}
 📧 *Email:* ${email}
 📱 *Phone:* ${contact}
 💵 *Amount:* ${currency} ${amount}
 🆔 *Payment ID:* ${payment.id}
-`;
+`);
 
       const botToken = process.env.TELEGRAM_BOT_TOKEN;
       const chatId = process.env.TELEGRAM_CHAT_ID;
 
       if (botToken && chatId) {
-        // 📨 Send Telegram message with logging
         try {
           const tgResponse = await fetch(
             `https://api.telegram.org/bot${botToken}/sendMessage`,
@@ -53,7 +54,7 @@ export default async function handler(req, res) {
               body: JSON.stringify({
                 chat_id: chatId,
                 text: message,
-                parse_mode: "Markdown",
+                parse_mode: "MarkdownV2",
               }),
             }
           );
@@ -70,7 +71,6 @@ export default async function handler(req, res) {
       console.log("✅ Payment captured and Telegram message attempted.");
     }
 
-    // Respond to Razorpay
     res.status(200).json({ status: "ok" });
   } catch (err) {
     console.error("❌ Error processing webhook:", err);
