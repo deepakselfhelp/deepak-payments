@@ -238,6 +238,40 @@
   </p>
 </div>
 
+  <script>
+  // ✅ Wait until the Razorpay widget is ready
+  document.addEventListener("DOMContentLoaded", function () {
+    
+    // ✅ Detect payment success via postMessage from Razorpay iframe
+    window.addEventListener("message", function (event) {
+      if (event.data && typeof event.data === "string") {
+        // Successful payment (Razorpay sends payment_id and subscription_id)
+        if (event.data.includes("razorpay_payment_id")) {
+          console.log("✅ Payment success detected:", event.data);
+          window.location.href = "/success.html";
+        }
+
+        // Payment failure or closed without completion
+        if (event.data.includes("payment_failed") || event.data.includes("modal_closed")) {
+          console.log("❌ Payment cancelled or failed:", event.data);
+          window.location.href = "/failure.html";
+        }
+      }
+    });
+
+    // ✅ Extra fallback: detect if user closes Razorpay modal manually
+    const checkModalClosed = setInterval(() => {
+      const iframe = document.querySelector('iframe[src*="razorpay"]');
+      if (!iframe && window.Razorpay && window.Razorpay.__active) {
+        console.log("⚠️ Razorpay modal closed manually");
+        window.location.href = "/failure.html";
+        clearInterval(checkModalClosed);
+      }
+    }, 3000);
+  });
+</script>
+
+
 <!-- ⚖️ Footer Links -->
 <footer style="background:#0a0a0a; color:#aaa; text-align:center; font-size:14px; padding:25px 10px; border-top:1px solid #222;">
   <div style="max-width:900px; margin:0 auto; display:flex; flex-wrap:wrap; justify-content:center; gap:12px;">
@@ -263,6 +297,7 @@
 
 </body>
 </html>
+
 
 
 
