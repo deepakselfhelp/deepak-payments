@@ -1,22 +1,19 @@
-// ✅ Deepak Academy — Mollie Initial Payment (Final Version)
-// Always creates a fresh customer + payment + new mandate per checkout
+// ✅ Deepak Academy — Create Initial Mollie Payment
+// Each checkout creates a *new* customer and *new* mandate
+// Used for: initial or one-time payments before subscription activation
 
 export default async function handler(req, res) {
   try {
     const MOLLIE_KEY = process.env.MOLLIE_SECRET_KEY;
     const { name, email, amount, planType } = req.body;
 
-    // 🔒 Basic validation
+    // --- Basic validation ---
     if (!email || !name || !amount) {
-      console.error("❌ Missing fields:", { name, email, amount });
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // -------------------------------------------------------------------
-    // 1️⃣ Create new Mollie Customer (always new, no reuse)
-    // -------------------------------------------------------------------
-    console.log("🆕 Creating Mollie customer for:", email);
-
+    // --- Step 1: Create a new Mollie customer every time ---
+    console.log("🆕 Creating new Mollie customer:", email);
     const newCustRes = await fetch("https://api.mollie.com/v2/customers", {
       method: "POST",
       headers: {
@@ -27,17 +24,12 @@ export default async function handler(req, res) {
     });
 
     const customer = await newCustRes.json();
-
     if (!customer?.id) {
       console.error("❌ Customer creation failed:", customer);
-      return res.status(400).json({ error: "Customer creation failed" });
+      return res.status(400).json({ error: "Customer creation failed", details: customer });
     }
 
-    console.log(`✅ Mollie Customer Created: ${customer.id}`);
-
-    // -------------------------------------------------------------------
-    // 2️⃣ Create Initial Payment — triggers mandate creation
-    // -------------------------------------------------------------------
+    // --- Step 2: Create the payment ---
     const payRes = await fetch("https://api.mollie.com/v2/payments", {
       method: "POST",
       headers: {
@@ -46,39 +38,25 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         amount: { value: amount, currency: "EUR" },
-        description: `${planType || "Deepak Academy"} Initial Payment`,
-        redirectUrl: "https://checkout.realcoachdeepak.com/success.html",
-        webhookUrl: "https://checkout.realcoachdeepak.com/api/mollie/webhook",
+        description: `${planType || "Membership"} Initial Payment`,
+        redirectUrl: "https://did-int-sub.vercel.app/success.html",
+        webhookUrl: "https://did-int-sub.vercel.app/api/mollie/webhook",
         customerId: customer.id,
-        metadata: {
-          name,
-          email,
-          planType,
-          type: "initialPayment",
-        },
-        sequenceType: "first", // ensures a new mandate is created
+        metadata: { name, email, planType },
       }),
     });
 
     const payment = await payRes.json();
 
-    // -------------------------------------------------------------------
-    // 3️⃣ Validate and Return Checkout URL
-    // -------------------------------------------------------------------
+    // --- Step 3: Handle Mollie response ---
     if (payRes.status !== 201 || !payment._links?.checkout?.href) {
-      console.error("❌ Mollie Payment Error:", payment);
-      return res.status(400).json({
-        error: "Failed to create payment",
-        details: payment,
-      });
+      console.error("❌ Mollie payment error:", payment);
+      return res.status(400).json({ error: "Failed to create payment", details: payment });
     }
 
-    console.log(`✅ Mollie Payment Created: ${payment.id}`);
-    res.status(200).json({
-      checkoutUrl: payment._links.checkout.href,
-      customerId: customer.id,
-      paymentId: payment.id,
-    });
+    console.log(`✅ Payment created for ${email}: ${payment.id}`);
+    res.status(200).json({ checkoutUrl: payment._links.checkout.href });
+
   } catch (err) {
     console.error("❌ create-initial-payment.js error:", err);
     res.status(500).json({ error: "Internal server error" });
