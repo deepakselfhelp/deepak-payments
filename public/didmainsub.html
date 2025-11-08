@@ -35,6 +35,7 @@
       flex-direction: column;
       justify-content: flex-start;
       align-items: center;
+      margin-top: 60px; /* shifts down on desktop for perfect alignment */
     }
 
     h1 {
@@ -139,6 +140,7 @@
       .right {
         order: 1;
         width: 100%;
+        margin-top: 0; /* ✅ Prevents extra gap on mobile */
       }
 
       .left {
@@ -319,6 +321,7 @@ subscribeBtn.addEventListener("click", async () => {
 
 </body>
 </html>
+
 
 
 
