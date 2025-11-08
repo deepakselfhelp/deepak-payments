@@ -232,48 +232,64 @@
 </div>
 
 <script>
-  document.getElementById("subscribeBtn").addEventListener("click", async () => {
-    const nameInput = document.getElementById("name");
-    const emailInput = document.getElementById("email");
-    const name = nameInput.value.trim();
-    const email = emailInput.value.trim();
+document.getElementById("subscribeBtn").addEventListener("click", async () => {
+  const nameInput = document.getElementById("name");
+  const emailInput = document.getElementById("email");
+  const name = nameInput.value.trim();
+  const email = emailInput.value.trim();
 
-    // Clear any previous error styles
-    nameInput.classList.remove("error");
-    emailInput.classList.remove("error");
+  // Clear previous error highlights
+  nameInput.classList.remove("error");
+  emailInput.classList.remove("error");
 
-    // Validation checks
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!name || name.length < 2) {
-      nameInput.classList.add("error");
-      alert("Please enter your full name (at least 2 characters).");
-      return;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  let valid = true;
+
+  // Validate name
+  if (!name || name.length < 2) {
+    nameInput.classList.add("error");
+    valid = false;
+  }
+
+  // Validate email
+  if (!emailRegex.test(email)) {
+    emailInput.classList.add("error");
+    valid = false;
+  }
+
+  if (!valid) {
+    alert("Please fill out all fields correctly before continuing.");
+    return;
+  }
+
+  // Proceed with API call
+  try {
+    const res = await fetch("/api/mollie/create-subscription", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email })
+    });
+
+    const data = await res.json();
+    if (data.checkoutUrl) {
+      window.location.href = data.checkoutUrl;
+    } else {
+      alert("Error creating subscription. Please try again later.");
+      console.error(data);
     }
-    if (!emailRegex.test(email)) {
-      emailInput.classList.add("error");
-      alert("Please enter a valid email address.");
-      return;
-    }
+  } catch (err) {
+    alert("Network error — please check your internet connection.");
+    console.error(err);
+  }
+});
 
-    try {
-      const res = await fetch("/api/mollie/create-subscription", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email })
-      });
-
-      const data = await res.json();
-      if (data.checkoutUrl) {
-        window.location.href = data.checkoutUrl;
-      } else {
-        alert("Error creating subscription. Please try again.");
-        console.error(data);
-      }
-    } catch (err) {
-      alert("Something went wrong. Please try again later.");
-      console.error(err);
-    }
+// ✅ Automatically remove red border when user types again
+["name", "email"].forEach(id => {
+  const field = document.getElementById(id);
+  field.addEventListener("input", () => {
+    field.classList.remove("error");
   });
+});
 </script>
 
 <!-- ⚖️ Footer -->
@@ -301,3 +317,4 @@
 
 </body>
 </html>
+
