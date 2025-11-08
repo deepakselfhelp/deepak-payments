@@ -2,7 +2,11 @@
 export default async function handler(req, res) {
   try {
     const MOLLIE_KEY = process.env.MOLLIE_SECRET_KEY;
-    const { customerId, amount } = req.body;
+    const { customerId, amount, planType } = req.body;
+
+    if (!customerId || !amount) {
+      return res.status(400).json({ error: "Missing customerId or amount" });
+    }
 
     const subRes = await fetch(
       `https://api.mollie.com/v2/customers/${customerId}/subscriptions`,
@@ -15,7 +19,7 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           amount: { value: amount, currency: "EUR" },
           interval: "1 month",
-          description: `Deepak Monthly Membership ${amount}€`,
+          description: `${planType || "Monthly Membership"} Subscription`,
           metadata: { source: "initialPaymentWebhook" },
         }),
       }
@@ -25,7 +29,7 @@ export default async function handler(req, res) {
     console.log("✅ Subscription created:", subscription.id);
     res.status(200).json(subscription);
   } catch (err) {
-    console.error("Create subscription error:", err);
+    console.error("❌ create-subscription error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 }
