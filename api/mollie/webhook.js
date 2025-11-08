@@ -1,4 +1,4 @@
-// ✅ /api/webhook.js
+// ✅ /api/webhook.js (final version with one-time detection)
 export default async function handler(req, res) {
   try {
     const MOLLIE_KEY = process.env.MOLLIE_SECRET_KEY;
@@ -17,45 +17,57 @@ export default async function handler(req, res) {
     const name = payment.metadata?.name || "N/A";
     const customerId = payment.customerId;
     const amount = payment.amount?.value || "0.00";
+    const recurringAmount = payment.metadata?.recurringAmount || "0.00";
     const planType = payment.metadata?.planType || "Unknown Plan";
 
+    // ✅ Handle paid initial payments
     if (payment.status === "paid" && payment.sequenceType === "oneoff") {
       console.log(`✅ Initial payment success for ${email}`);
 
-      // 2️⃣ Create subscription
-      const subRes = await fetch(
-        `https://checkout.realcoachdeepak.com/api/create-subscription`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            customerId,
-            amount: payment.metadata?.recurringAmount || amount,
-            planType,
-          }),
-        }
-      );
-      const subscription = await subRes.json();
+      // 🔍 Check if recurring plan or one-time
+      if (recurringAmount !== "0.00") {
+        // 🔁 Create subscription only if recurring
+        const subRes = await fetch(
+          `https://checkout.realcoachdeepak.com/api/create-subscription`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              customerId,
+              amount: recurringAmount,
+              planType,
+            }),
+          }
+        );
+        const subscription = await subRes.json();
 
-      // 3️⃣ Notify Telegram
-      const msg = `🏦 *Source:* Mollie
+        await sendTelegram(`🏦 *Source:* Mollie
 💰 *Initial Payment Successful*
 📧 *Email:* ${email}
 👤 *Name:* ${name}
 💵 *Amount:* €${amount}
 🧾 *Customer ID:* ${customerId}
 🔁 *Subscription:* ${subscription.id || "Created"}
-`;
-      await sendTelegram(msg);
+`);
+      } else {
+        // 💵 One-time payment only
+        await sendTelegram(`🏦 *Source:* Mollie
+💰 *One-Time Payment Successful*
+📧 *Email:* ${email}
+👤 *Name:* ${name}
+💵 *Amount:* €${amount}
+📦 *Plan:* ${planType}
+✅ *No subscription created (one-time product)*
+`);
+      }
     }
 
-    // 4️⃣ Handle failed/canceled payments
+    // ⚠️ Handle failed/canceled payments
     if (payment.status === "failed" || payment.status === "canceled") {
-      const msg = `⚠️ *Mollie Payment Failed or Cancelled*
+      await sendTelegram(`⚠️ *Mollie Payment Failed or Cancelled*
 📧 ${email}
 💶 €${amount}
-❌ Status: ${payment.status}`;
-      await sendTelegram(msg);
+❌ Status: ${payment.status}`);
     }
 
     res.status(200).json({ ok: true });
