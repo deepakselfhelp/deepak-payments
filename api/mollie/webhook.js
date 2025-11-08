@@ -4,17 +4,35 @@ export default async function handler(req, res) {
   }
 
   try {
-    const body = req.body;
-    console.log("📬 Mollie webhook received:", body.id, body.status);
+    const MOLLIE_KEY = process.env.MOLLIE_SECRET_KEY;
+    const { id } = req.body; // Mollie webhook only sends the payment or subscription ID
 
-    function escapeMarkdown(text) {
-      return text.replace(/([_*\[\]()~`>#+\-=|{}.!\\])/g, "\\$1");
+    console.log("📬 Mollie webhook received:", id);
+
+    if (!id) {
+      console.warn("⚠️ No ID received in Mollie webhook payload");
+      return res.status(400).json({ error: "Missing ID in Mollie webhook" });
     }
 
+    // ✅ Fetch full payment/subscription details from Mollie
+    const paymentRes = await fetch(`https://api.mollie.com/v2/payments/${id}`, {
+      headers: { Authorization: `Bearer ${MOLLIE_KEY}` },
+    });
+    const payment = await paymentRes.json();
+
+    console.log("✅ Full Mollie payment object:", JSON.stringify(payment, null, 2));
+
+    // Helper: escape Markdown special characters for Telegram
+    function escapeMarkdownV2(text) {
+      return text ? text.replace(/([_*\[\]()~`>#+\-=|{}.!\\])/g, "\\$1") : "";
+    }
+
+    // ✅ Telegram message sender
     async function sendTelegramMessage(text) {
       const botToken = process.env.TELEGRAM_BOT_TOKEN;
       const chatId = process.env.TELEGRAM_CHAT_ID;
       if (!botToken || !chatId) return;
+
       await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -26,72 +44,78 @@ export default async function handler(req, res) {
       });
     }
 
-    const email = body.metadata?.email || "N/A";
-    const name = body.metadata?.name || "N/A";
-    const amount = body.amount?.value || "0.00";
-    const currency = body.amount?.currency || "EUR";
-    const paymentId = body.id || "unknown";
-    const status = body.status || "unknown";
-    const product = body.description || "Deepak Academy Product";
-    const subId = body.subscriptionId || "N/A";
-    const sequence = body.sequenceType || "oneoff";
+    // Extract details
+    const email = payment.metadata?.email || "N/A";
+    const name = payment.metadata?.name || "N/A";
+    const amount = payment.amount?.value || "0.00";
+    const currency = payment.amount?.currency || "EUR";
+    const status = payment.status || "unknown";
+    const product = payment.description || "Deepak Academy Product";
+    const paymentId = payment.id || "N/A";
+    const sequence = payment.sequenceType || "oneoff";
+    const subscriptionId = payment.subscriptionId || "N/A";
 
-    if (status === "paid" && sequence === "oneoff") {
-      const msg = escapeMarkdown(`
+    // ✅ Handle Successful First Payment
+    if (status === "paid" && sequence === "first") {
+      const msg = escapeMarkdownV2(`
 🏦 *Source:* Mollie
-💰 *New Payment Successful*
+💰 *New Subscription Started*
 📦 *Product:* ${product}
 📧 *Email:* ${email}
 💵 *Amount:* ${currency} ${amount}
 🆔 *Payment ID:* ${paymentId}
-      `);
+🧾 *Subscription ID:* ${subscriptionId}
+`);
       await sendTelegramMessage(msg);
-      console.log(`✅ Payment received: ${paymentId}`);
+      console.log(`✅ [New Subscription Started] ${paymentId}`);
     }
 
+    // ✅ Handle Subscription Renewals
     if (status === "paid" && sequence === "recurring") {
-      const msg = escapeMarkdown(`
+      const msg = escapeMarkdownV2(`
 🏦 *Source:* Mollie
 🔁 *Subscription Renewal Charged*
 📦 *Product:* ${product}
 📧 *Email:* ${email}
 💵 *Amount:* ${currency} ${amount}
-🧾 *Subscription ID:* ${subId}
+🧾 *Subscription ID:* ${subscriptionId}
 🆔 *Payment ID:* ${paymentId}
-      `);
+`);
       await sendTelegramMessage(msg);
-      console.log(`🔁 Renewal charged: ${paymentId}`);
+      console.log(`🔁 [Renewal Charged] ${paymentId}`);
     }
 
+    // ⚠️ Handle Payment Failures
     if (status === "failed" || status === "expired" || status === "canceled") {
-      const reason = body.failureReason || "Unknown";
-      const msg = escapeMarkdown(`
+      const failReason = payment.failureReason || "Unknown reason";
+      const msg = escapeMarkdownV2(`
 🏦 *Source:* Mollie
 ⚠️ *Payment Failed*
 📧 *Email:* ${email}
 💵 *Amount:* ${currency} ${amount}
-❌ *Reason:* ${reason}
+❌ *Reason:* ${failReason}
 🆔 *Payment ID:* ${paymentId}
-      `);
+`);
       await sendTelegramMessage(msg);
-      console.log(`⚠️ Payment failed: ${paymentId}`);
+      console.log(`⚠️ [Payment Failed] ${paymentId}`);
     }
 
-    if (body.resource === "subscription" && body.status === "canceled") {
-      const msg = escapeMarkdown(`
+    // 🚫 Handle Subscription Cancellations (Mandate revoked)
+    if (payment.status === "canceled" || payment.sequenceType === "recurring_cancelled") {
+      const msg = escapeMarkdownV2(`
 🏦 *Source:* Mollie
 🚫 *Subscription Cancelled*
 📧 *Email:* ${email}
-🧾 *Subscription ID:* ${subId}
-💬 *Reason:* ${body.reason || "Cancelled manually or failed rebill"}
-      `);
+🧾 *Subscription ID:* ${subscriptionId}
+❌ *Reason:* Cancelled manually or by customer
+`);
       await sendTelegramMessage(msg);
-      console.log(`🚫 Subscription cancelled: ${subId}`);
+      console.log(`🚫 [Subscription Cancelled] ${subscriptionId}`);
     }
 
     res.status(200).json({ status: "ok" });
   } catch (err) {
-    console.error("❌ Mollie Webhook Error:", err);
+    console.error("❌ [Mollie Webhook Error]:", err);
     res.status(500).json({ error: err.message });
   }
 }
