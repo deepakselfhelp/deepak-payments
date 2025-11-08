@@ -232,37 +232,39 @@
 </div>
 
 <script>
-document.getElementById("subscribeBtn").addEventListener("click", async () => {
-  const nameInput = document.getElementById("name");
-  const emailInput = document.getElementById("email");
+const nameInput = document.getElementById("name");
+const emailInput = document.getElementById("email");
+const subscribeBtn = document.getElementById("subscribeBtn");
+
+subscribeBtn.addEventListener("click", async () => {
   const name = nameInput.value.trim();
   const email = emailInput.value.trim();
 
-  // Clear previous error highlights
+  // Reset error state
   nameInput.classList.remove("error");
   emailInput.classList.remove("error");
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   let valid = true;
 
-  // Validate name
+  // ✅ Validate name
   if (!name || name.length < 2) {
     nameInput.classList.add("error");
     valid = false;
   }
 
-  // Validate email
+  // ✅ Validate email
   if (!emailRegex.test(email)) {
     emailInput.classList.add("error");
     valid = false;
   }
 
   if (!valid) {
-    alert("Please fill out all fields correctly before continuing.");
+    alert("Please fill in all required fields correctly before continuing.");
     return;
   }
 
-  // Proceed with API call
+  // ✅ Proceed with API call
   try {
     const res = await fetch("/api/mollie/create-subscription", {
       method: "POST",
@@ -278,15 +280,14 @@ document.getElementById("subscribeBtn").addEventListener("click", async () => {
       console.error(data);
     }
   } catch (err) {
-    alert("Network error — please check your internet connection.");
+    alert("Network error. Please try again.");
     console.error(err);
   }
 });
 
-// ✅ Automatically remove red border when user types again
-["name", "email"].forEach(id => {
-  const field = document.getElementById(id);
-  field.addEventListener("input", () => {
+// ✅ Remove red border when field gets focus (click)
+[nameInput, emailInput].forEach(field => {
+  field.addEventListener("focus", () => {
     field.classList.remove("error");
   });
 });
@@ -317,4 +318,5 @@ document.getElementById("subscribeBtn").addEventListener("click", async () => {
 
 </body>
 </html>
+
 
