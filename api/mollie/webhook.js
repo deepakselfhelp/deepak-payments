@@ -1,4 +1,4 @@
-// ✅ /api/mollie/webhook.js — Final Version with Retry Logging + Telegram
+// ✅ /api/mollie/webhook.js — Dual Telegram Notifications (Payment + Subscription)
 export default async function handler(req, res) {
   try {
     const MOLLIE_KEY = process.env.MOLLIE_SECRET_KEY;
@@ -9,13 +9,8 @@ export default async function handler(req, res) {
     const paymentId = body.id || body.paymentId;
 
     console.log("📬 Mollie webhook received:", paymentId);
-    console.log("🔁 Delivery attempt headers:", {
-      "X-Mollie-Request-Id": req.headers["x-mollie-request-id"],
-      "X-Mollie-Signature": req.headers["x-mollie-signature"],
-      "X-Forwarded-For": req.headers["x-forwarded-for"],
-    });
 
-    // ✅ Get full payment details
+    // ✅ Fetch full payment info
     const paymentRes = await fetch(`https://api.mollie.com/v2/payments/${paymentId}`, {
       headers: { Authorization: `Bearer ${MOLLIE_KEY}` },
     });
@@ -31,11 +26,10 @@ export default async function handler(req, res) {
     const amount = payment.amount?.value || "0.00";
     const currency = payment.amount?.currency || "EUR";
     const customerId = payment.customerId;
-    const sequence = payment.sequenceType; // "first" or "recurring"
+    const sequence = payment.sequenceType;
     const status = payment.status;
     const planType = payment.metadata?.planType || "DID Main Subscription";
 
-    // Helper for Telegram
     async function sendTelegram(text) {
       if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
       try {
@@ -53,8 +47,13 @@ export default async function handler(req, res) {
       }
     }
 
-    // 💰 FIRST payment (create subscription)
+    // 💰 FIRST PAYMENT (step 1: payment completed)
     if (status === "paid" && sequence === "first") {
+      await sendTelegram(
+        `🏦 *Source:* Mollie\n💰 *Initial Payment Completed*\n📧 *Email:* ${email}\n👤 *Name:* ${name}\n💵 *Amount:* ${currency} ${amount}\n🧾 *Customer ID:* ${customerId}\n📦 *Plan:* ${planType}`
+      );
+
+      // step 2: now create subscription
       const subRes = await fetch(
         `https://api.mollie.com/v2/customers/${customerId}/subscriptions`,
         {
@@ -75,28 +74,24 @@ export default async function handler(req, res) {
       const subscription = await subRes.json();
       console.log("✅ Subscription created:", subscription.id || subscription);
 
+      // step 3: notify subscription creation
       await sendTelegram(
-        `🏦 *Source:* Mollie\n💰 *New Subscription Started*\n📧 *Email:* ${email}\n👤 *Name:* ${name}\n💵 *Amount:* ${currency} ${amount}\n🧾 *Subscription ID:* ${subscription.id || "N/A"}\n🆔 *Customer ID:* ${customerId}`
+        `🎉 *Subscription Started Successfully*\n📧 *Email:* ${email}\n👤 *Name:* ${name}\n🧾 *Subscription ID:* ${subscription.id || "N/A"}\n🆔 *Customer ID:* ${customerId}\n📦 *Plan:* ${planType}`
       );
     }
 
-    // 🔁 Recurring renewal
+    // 🔁 RECURRING PAYMENT
     else if (status === "paid" && sequence === "recurring") {
       await sendTelegram(
         `🔁 *Subscription Renewal Charged*\n📧 *Email:* ${email}\n💵 *Amount:* ${currency} ${amount}\n🧾 *Customer ID:* ${customerId}`
       );
     }
 
-    // ⚠️ Payment failed
+    // ⚠️ FAILED PAYMENT
     else if (status === "failed") {
       await sendTelegram(
         `⚠️ *Payment Failed*\n📧 *Email:* ${email}\n💵 *Amount:* ${currency} ${amount}\n🧾 *Customer ID:* ${customerId}`
       );
-    }
-
-    // 💤 Fallback for unhandled states
-    else {
-      console.log(`ℹ️ Payment status: ${status}, sequence: ${sequence}`);
     }
 
     res.status(200).send("OK");
