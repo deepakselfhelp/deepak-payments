@@ -1,5 +1,3 @@
-// ✅ Mollie Webhook — Sends all payment + subscription events to Telegram
-
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed" });
@@ -7,21 +5,16 @@ export default async function handler(req, res) {
 
   try {
     const body = req.body;
+    console.log("📬 Mollie webhook received:", body.id, body.status);
 
-    // 🧾 Mollie sends payment and subscription updates in the same webhook
-    console.log("📬 Received Mollie Webhook Event:", body);
-
-    // 🧠 Markdown escape for Telegram
-    function escapeMarkdownV2(text) {
+    function escapeMarkdown(text) {
       return text.replace(/([_*\[\]()~`>#+\-=|{}.!\\])/g, "\\$1");
     }
 
-    // 🔔 Telegram sender
     async function sendTelegramMessage(text) {
       const botToken = process.env.TELEGRAM_BOT_TOKEN;
       const chatId = process.env.TELEGRAM_CHAT_ID;
       if (!botToken || !chatId) return;
-
       await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -33,79 +26,72 @@ export default async function handler(req, res) {
       });
     }
 
-    // 🧩 Extract details safely
-    const payment = body;
-    const status = payment.status;
-    const email = payment.metadata?.email || "N/A";
-    const name = payment.metadata?.name || "N/A";
-    const product = payment.metadata?.product || "Mollie Subscription";
-    const amount = payment.amount?.value || "N/A";
-    const currency = payment.amount?.currency || "EUR";
-    const paymentId = payment.id || "N/A";
+    const email = body.metadata?.email || "N/A";
+    const name = body.metadata?.name || "N/A";
+    const amount = body.amount?.value || "0.00";
+    const currency = body.amount?.currency || "EUR";
+    const paymentId = body.id || "unknown";
+    const status = body.status || "unknown";
+    const product = body.description || "Deepak Academy Product";
+    const subId = body.subscriptionId || "N/A";
+    const sequence = body.sequenceType || "oneoff";
 
-    // 💰 1️⃣ Payment succeeded
-    if (status === "paid") {
-      const message = escapeMarkdownV2(`
+    if (status === "paid" && sequence === "oneoff") {
+      const msg = escapeMarkdown(`
 🏦 *Source:* Mollie
-💰 *Payment Successful*
+💰 *New Payment Successful*
 📦 *Product:* ${product}
-👤 *Name:* ${name}
 📧 *Email:* ${email}
 💵 *Amount:* ${currency} ${amount}
 🆔 *Payment ID:* ${paymentId}
-`);
-      await sendTelegramMessage(message);
-      console.log(`✅ [Mollie Payment Paid] ${paymentId}`);
+      `);
+      await sendTelegramMessage(msg);
+      console.log(`✅ Payment received: ${paymentId}`);
     }
 
-    // ⚠️ 2️⃣ Payment failed
-    if (status === "failed") {
-      const message = escapeMarkdownV2(`
+    if (status === "paid" && sequence === "recurring") {
+      const msg = escapeMarkdown(`
+🏦 *Source:* Mollie
+🔁 *Subscription Renewal Charged*
+📦 *Product:* ${product}
+📧 *Email:* ${email}
+💵 *Amount:* ${currency} ${amount}
+🧾 *Subscription ID:* ${subId}
+🆔 *Payment ID:* ${paymentId}
+      `);
+      await sendTelegramMessage(msg);
+      console.log(`🔁 Renewal charged: ${paymentId}`);
+    }
+
+    if (status === "failed" || status === "expired" || status === "canceled") {
+      const reason = body.failureReason || "Unknown";
+      const msg = escapeMarkdown(`
 🏦 *Source:* Mollie
 ⚠️ *Payment Failed*
-📦 *Product:* ${product}
-👤 *Name:* ${name}
 📧 *Email:* ${email}
 💵 *Amount:* ${currency} ${amount}
+❌ *Reason:* ${reason}
 🆔 *Payment ID:* ${paymentId}
-`);
-      await sendTelegramMessage(message);
-      console.log(`⚠️ [Mollie Payment Failed] ${paymentId}`);
+      `);
+      await sendTelegramMessage(msg);
+      console.log(`⚠️ Payment failed: ${paymentId}`);
     }
 
-    // 🕓 3️⃣ Payment pending (for SEPA/bank)
-    if (status === "open" || status === "pending") {
-      const message = escapeMarkdownV2(`
-🏦 *Source:* Mollie
-⏳ *Payment Pending*
-📦 *Product:* ${product}
-👤 *Name:* ${name}
-📧 *Email:* ${email}
-💵 *Amount:* ${currency} ${amount}
-🆔 *Payment ID:* ${paymentId}
-`);
-      await sendTelegramMessage(message);
-      console.log(`⏳ [Mollie Payment Pending] ${paymentId}`);
-    }
-
-    // 🚫 4️⃣ Subscription cancelled (if Mollie sends subscription event)
     if (body.resource === "subscription" && body.status === "canceled") {
-      const subId = body.id || "N/A";
-      const message = escapeMarkdownV2(`
+      const msg = escapeMarkdown(`
 🏦 *Source:* Mollie
 🚫 *Subscription Cancelled*
-📦 *Product:* ${product}
-👤 *Name:* ${name}
 📧 *Email:* ${email}
 🧾 *Subscription ID:* ${subId}
-`);
-      await sendTelegramMessage(message);
-      console.log(`🚫 [Mollie Subscription Cancelled] ${subId}`);
+💬 *Reason:* ${body.reason || "Cancelled manually or failed rebill"}
+      `);
+      await sendTelegramMessage(msg);
+      console.log(`🚫 Subscription cancelled: ${subId}`);
     }
 
     res.status(200).json({ status: "ok" });
   } catch (err) {
-    console.error("❌ [Mollie Webhook Error]:", err);
-    res.status(500).json({ status: "error", error: err.message });
+    console.error("❌ Mollie Webhook Error:", err);
+    res.status(500).json({ error: err.message });
   }
 }
