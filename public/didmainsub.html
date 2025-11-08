@@ -168,47 +168,75 @@
 <script>
 const nameInput = document.getElementById("name");
 const emailInput = document.getElementById("email");
-const btn = document.getElementById("subscribeBtn");
+const subscribeBtn = document.getElementById("subscribeBtn");
 
-btn.addEventListener("click", async () => {
+// ✅ Email Regex — more robust (supports subdomains, long TLDs, etc.)
+const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+subscribeBtn.addEventListener("click", async () => {
   const name = nameInput.value.trim();
-  const email = emailInput.value.trim();
-  const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+  const email = emailInput.value.trim().toLowerCase();
 
+  // Reset error state
   nameInput.classList.remove("error");
   emailInput.classList.remove("error");
 
   let valid = true;
-  if (!name || name.length < 2) { nameInput.classList.add("error"); valid = false; }
-  if (!emailRegex.test(email)) { emailInput.classList.add("error"); valid = false; }
 
-  if (!valid) { alert("Please fill in all required fields correctly."); return; }
+  // ✅ Validate name
+  if (!name || name.length < 2) {
+    nameInput.classList.add("error");
+    valid = false;
+  }
 
+  // ✅ Validate email
+  if (!emailRegex.test(email)) {
+    emailInput.classList.add("error");
+    valid = false;
+  }
+
+  if (!valid) {
+    alert("⚠️ Please fill in all required fields correctly before continuing.");
+    return;
+  }
+
+  // ✅ Proceed with API call
   try {
-    const res = await fetch("/api/create-initial-payment", {
+    subscribeBtn.disabled = true;
+    subscribeBtn.textContent = "Processing...";
+
+    const res = await fetch("/api/mollie/create-subscription", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name, email,
-        initialAmount: "29.00",
-        recurringAmount: "29.00",
-        planType: "DID Main Monthly"
-      })
+      body: JSON.stringify({ name, email })
     });
+
     const data = await res.json();
-    if (data.checkoutUrl) window.location.href = data.checkoutUrl;
-    else {
+
+    if (data.checkoutUrl) {
+      window.location.href = data.checkoutUrl;
+    } else {
+      alert("❌ Error creating subscription. Please try again later.");
       console.error(data);
-      alert("Error creating payment. Please try again.");
+      subscribeBtn.disabled = false;
+      subscribeBtn.textContent = "Start €29 Subscription";
     }
   } catch (err) {
+    alert("🌐 Network error. Please try again.");
     console.error(err);
-    alert("Network error. Please try again later.");
+    subscribeBtn.disabled = false;
+    subscribeBtn.textContent = "Start €29 Subscription";
   }
 });
 
-[nameInput, emailInput].forEach(f => f.addEventListener("focus", () => f.classList.remove("error")));
+// ✅ Remove red border immediately when clicking into input
+[nameInput, emailInput].forEach(field => {
+  field.addEventListener("focus", () => {
+    field.classList.remove("error");
+  });
+});
 </script>
+
 
 <!-- ⚖️ Footer -->
 <footer style="background:#0a0a0a; color:#aaa; text-align:center; font-size:14px; padding:25px 10px; border-top:1px solid #222;">
@@ -226,3 +254,4 @@ btn.addEventListener("click", async () => {
 
 </body>
 </html>
+
