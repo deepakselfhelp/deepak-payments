@@ -39,8 +39,8 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         amount: { value: amount, currency: "EUR" },
         description: `${planType || "Membership"} Initial Payment`,
-        redirectUrl: "https://did-int-sub.vercel.app/success.html",
-        webhookUrl: "https://did-int-sub.vercel.app/api/mollie/webhook",
+        redirectUrl: "https://checkout.realcoachdeepak.com/success.html",
+        webhookUrl: "https://checkout.realcoachdeepak.com/api/mollie/webhook",
         customerId: customer.id,
         metadata: { name, email, planType },
       }),
@@ -62,3 +62,4 @@ export default async function handler(req, res) {
     res.status(500).json({ error: "Internal server error" });
   }
 }
+
