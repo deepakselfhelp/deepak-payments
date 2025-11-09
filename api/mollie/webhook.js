@@ -1,4 +1,4 @@
-// ✅ /api/mollie/webhook.js — Final Version with Retry Logging + Telegram
+// ✅ /api/mollie/webhook.js — Final Version with Initial Payment Message
 export default async function handler(req, res) {
   try {
     const MOLLIE_KEY = process.env.MOLLIE_SECRET_KEY;
@@ -55,6 +55,13 @@ export default async function handler(req, res) {
 
     // 💰 FIRST payment (create subscription)
     if (status === "paid" && sequence === "first") {
+
+      // 🟢 1️⃣ Send Initial Payment Telegram Message
+      await sendTelegram(
+        `🏦 *Source:* Mollie\n💰 *Initial Payment Successful*\n📧 *Email:* ${email}\n👤 *Name:* ${name}\n📦 *Plan:* ${planType}\n💵 *Amount:* ${currency} ${amount}\n🆔 *Payment ID:* ${payment.id}\n🧾 *Customer ID:* ${customerId}`
+      );
+
+      // 🟡 2️⃣ Create Subscription (unchanged)
       const subRes = await fetch(
         `https://api.mollie.com/v2/customers/${customerId}/subscriptions`,
         {
