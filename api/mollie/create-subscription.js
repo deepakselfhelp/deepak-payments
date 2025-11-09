@@ -27,7 +27,7 @@ export default async function handler(req, res) {
           interval: "1 month",
           description: `${planType || "Deepak Academy"} Monthly Subscription`,
           metadata: { email, name, planType, createdBy: "webhook_auto" },
-          webhookUrl: "https://did-int-sub.vercel.app/api/mollie/webhook",
+          webhookUrl: "https://checkout.realcoachdeepak.com/api/mollie/webhook",
         }),
       }
     );
@@ -51,3 +51,4 @@ export default async function handler(req, res) {
     res.status(500).json({ error: "Internal server error" });
   }
 }
+
