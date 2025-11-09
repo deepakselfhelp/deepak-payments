@@ -205,10 +205,16 @@ subscribeBtn.addEventListener("click", async () => {
     subscribeBtn.disabled = true;
     subscribeBtn.textContent = "Processing...";
 
-    const res = await fetch("/api/mollie/create-subscription", {
+    const res = await fetch("/api/mollie/create-initial-payment", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email })
+      body: JSON.stringify({
+  name,
+  email,
+  initialAmount: "29.00",
+  recurringAmount: "29.00",
+  planType: "DID Main Monthly"
+})
     });
 
     const data = await res.json();
@@ -254,3 +260,4 @@ subscribeBtn.addEventListener("click", async () => {
 
 </body>
 </html>
+
