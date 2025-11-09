@@ -1,4 +1,8 @@
-// ✅ /api/mollie/webhook.js — Stable Version with 8s Delay for Subscription + Full Telegram Coverage
+// ✅ /api/mollie/webhook.js — Final Stable Version (with Duplicate Protection + Full Telegram Coverage + Time Stamps)
+const processedPayments = new Set();
+// Auto-clear cache every 60 s to keep memory clean
+setInterval(() => processedPayments.clear(), 60000);
+
 export default async function handler(req, res) {
   try {
     const MOLLIE_KEY = process.env.MOLLIE_SECRET_KEY;
@@ -8,6 +12,13 @@ export default async function handler(req, res) {
     const body = req.body;
     const paymentId = body.id || body.paymentId;
 
+    // 🧠 Prevent duplicate processing
+    if (processedPayments.has(paymentId)) {
+      console.log(`⚠️ Duplicate webhook ignored for ${paymentId}`);
+      return res.status(200).send("Duplicate ignored");
+    }
+    processedPayments.add(paymentId);
+
     console.log("📬 Mollie webhook received:", paymentId);
     console.log("🔁 Delivery attempt headers:", {
       "X-Mollie-Request-Id": req.headers["x-mollie-request-id"],
@@ -15,7 +26,7 @@ export default async function handler(req, res) {
       "X-Forwarded-For": req.headers["x-forwarded-for"],
     });
 
-    // 🕒 CET time
+    // 🕒 CET timestamp
     const now = new Date();
     const timeCET = now.toLocaleString("en-GB", {
       timeZone: "Europe/Berlin",
@@ -41,8 +52,10 @@ export default async function handler(req, res) {
     const sequence = payment.sequenceType;
     const status = payment.status;
     const planType = payment.metadata?.planType || "DID Main Subscription";
+    const recurringAmount = payment.metadata?.recurringAmount || "0.00";
+    const isRecurring = parseFloat(recurringAmount) > 0;
 
-    // 🔔 Telegram helper
+    // Telegram helper
     async function sendTelegram(text) {
       if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
       try {
@@ -60,18 +73,22 @@ export default async function handler(req, res) {
       }
     }
 
-    // 💰 1️⃣ Initial Payment Success
+    // 💰 1️⃣ Initial payment success
     if (status === "paid" && sequence === "first") {
-      const startTime = Date.now();
-
       await sendTelegram(
-        `💰 *INITIAL PAYMENT SUCCESSFUL*\n━━━━━━━━━━━━━━━\n🕒 *Time:* ${timeCET} (CET)\n🏦 *Source:* Mollie\n📧 *Email:* ${email}\n👤 *Name:* ${name}\n📦 *Plan:* ${planType}\n💵 *Amount:* ${currency} ${amount}\n🆔 *Payment ID:* ${payment.id}\n🧾 *Customer ID:* ${customerId}\n⏳ Waiting 8 seconds before creating subscription...`
+        `💰 *INITIAL PAYMENT SUCCESSFUL*\n━━━━━━━━━━━━━━━\n🕒 *Time:* ${timeCET} (CET)\n🏦 *Source:* Mollie\n📧 *Email:* ${email}\n👤 *Name:* ${name}\n📦 *Plan:* ${planType}\n💵 *Initial:* ${currency} ${amount}\n🔁 *Recurring:* ${currency} ${recurringAmount}\n🆔 *Payment ID:* ${payment.id}\n🧾 *Customer ID:* ${customerId}${isRecurring ? "\n⏳ Waiting 8 seconds before creating subscription…" : "\n✅ One-time purchase — no subscription."}`
       );
 
-      // 🕗 Delay 8s to allow Mollie mandate creation
-      await new Promise(resolve => setTimeout(resolve, 8000));
+      // One-time purchases skip subscription creation
+      if (!isRecurring) {
+        console.log("ℹ️ One-time payment — no recurring subscription needed.");
+        return res.status(200).send("OK");
+      }
 
-      // 🔄 Auto-create subscription
+      // Wait 8 s before creating subscription (avoid early-mandate errors)
+      await new Promise(r => setTimeout(r, 8000));
+
+      // Create recurring subscription
       const subRes = await fetch(
         `https://api.mollie.com/v2/customers/${customerId}/subscriptions`,
         {
@@ -81,21 +98,18 @@ export default async function handler(req, res) {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            amount: { value: "29.00", currency: "EUR" },
+            amount: { value: recurringAmount, currency: "EUR" },
             interval: "1 month",
-            description: planType,
-            metadata: { email, name },
+            description: `${planType} Subscription`,
+            metadata: { email, name, planType },
           }),
         }
       );
 
       const subscription = await subRes.json();
-      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-
       if (subscription.id) {
-        console.log(`✅ Subscription created in ${duration}s: ${subscription.id}`);
         await sendTelegram(
-          `🧾 *SUBSCRIPTION STARTED*\n━━━━━━━━━━━━━━━\n🕒 *Time:* ${timeCET} (CET)\n🏦 *Source:* Mollie\n📧 *Email:* ${email}\n👤 *Name:* ${name}\n📦 *Plan:* ${planType}\n💳 *Amount:* ${currency} ${amount}\n🧾 *Subscription ID:* ${subscription.id}\n🆔 *Customer ID:* ${customerId}\n⏱ *Execution:* ${duration}s`
+          `🧾 *SUBSCRIPTION STARTED*\n━━━━━━━━━━━━━━━\n🕒 *Time:* ${timeCET} (CET)\n🏦 *Source:* Mollie\n📧 *Email:* ${email}\n👤 *Name:* ${name}\n📦 *Plan:* ${planType}\n💳 *Recurring:* ${currency} ${recurringAmount}\n🧾 *Subscription ID:* ${subscription.id}\n🆔 *Customer ID:* ${customerId}`
         );
       } else {
         console.error("❌ Subscription creation failed:", subscription);
@@ -105,28 +119,28 @@ export default async function handler(req, res) {
       }
     }
 
-    // 🔁 2️⃣ Renewal Success
+    // 🔁 2️⃣ Renewal success
     else if (status === "paid" && sequence === "recurring") {
       await sendTelegram(
         `🔁 *RENEWAL CHARGED*\n━━━━━━━━━━━━━━━\n🕒 *Time:* ${timeCET} (CET)\n📧 *Email:* ${email}\n📦 *Plan:* ${planType}\n💵 *Amount:* ${currency} ${amount}\n🧾 *Customer ID:* ${customerId}`
       );
     }
 
-    // ⚠️ 3️⃣ Renewal Failed
+    // ⚠️ 3️⃣ Renewal failed
     else if (status === "failed" && sequence === "recurring") {
       await sendTelegram(
         `⚠️ *RENEWAL FAILED*\n━━━━━━━━━━━━━━━\n🕒 *Time:* ${timeCET} (CET)\n📧 *Email:* ${email}\n📦 *Plan:* ${planType}\n💵 *Amount:* ${currency} ${amount}\n🧾 *Customer ID:* ${customerId}`
       );
     }
 
-    // ❌ 4️⃣ Initial Payment Failed
+    // ❌ 4️⃣ Initial payment failed
     else if (status === "failed" && sequence !== "recurring") {
       await sendTelegram(
         `❌ *INITIAL PAYMENT FAILED*\n━━━━━━━━━━━━━━━\n🕒 *Time:* ${timeCET} (CET)\n📧 *Email:* ${email}\n📦 *Plan:* ${planType}\n💵 *Amount:* ${currency} ${amount}\n🧾 *Customer ID:* ${customerId}`
       );
     }
 
-    // 🚫 5️⃣ Subscription Cancelled
+    // 🚫 5️⃣ Subscription cancelled
     else if (body.resource === "subscription" && body.status === "canceled") {
       await sendTelegram(
         `🚫 *SUBSCRIPTION CANCELLED*\n━━━━━━━━━━━━━━━\n🕒 *Time:* ${timeCET} (CET)\n📧 *Email:* ${email}\n📦 *Plan:* ${planType}\n🧾 *Customer ID:* ${customerId}`
@@ -144,5 +158,3 @@ export default async function handler(req, res) {
     res.status(500).send("Internal error");
   }
 }
-
-
