@@ -1,4 +1,4 @@
-// ✅ /api/mollie/webhook.js — Final Stable Version with Full Telegram Coverage + Emoji Legends + Time Stamps
+// ✅ /api/mollie/webhook.js — Stable Version with 8s Delay for Subscription + Full Telegram Coverage
 export default async function handler(req, res) {
   try {
     const MOLLIE_KEY = process.env.MOLLIE_SECRET_KEY;
@@ -15,14 +15,14 @@ export default async function handler(req, res) {
       "X-Forwarded-For": req.headers["x-forwarded-for"],
     });
 
-    // 🕒 Generate formatted CET time
+    // 🕒 CET time
     const now = new Date();
     const timeCET = now.toLocaleString("en-GB", {
       timeZone: "Europe/Berlin",
       hour12: false,
     });
 
-    // ✅ Get full payment details
+    // ✅ Fetch full payment details
     const paymentRes = await fetch(`https://api.mollie.com/v2/payments/${paymentId}`, {
       headers: { Authorization: `Bearer ${MOLLIE_KEY}` },
     });
@@ -42,7 +42,7 @@ export default async function handler(req, res) {
     const status = payment.status;
     const planType = payment.metadata?.planType || "DID Main Subscription";
 
-    // 🔔 Telegram sender
+    // 🔔 Telegram helper
     async function sendTelegram(text) {
       if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
       try {
@@ -62,9 +62,14 @@ export default async function handler(req, res) {
 
     // 💰 1️⃣ Initial Payment Success
     if (status === "paid" && sequence === "first") {
+      const startTime = Date.now();
+
       await sendTelegram(
-        `💰 *INITIAL PAYMENT SUCCESSFUL*\n━━━━━━━━━━━━━━━\n🕒 *Time:* ${timeCET} (CET)\n🏦 *Source:* Mollie\n📧 *Email:* ${email}\n👤 *Name:* ${name}\n📦 *Plan:* ${planType}\n💵 *Amount:* ${currency} ${amount}\n🆔 *Payment ID:* ${payment.id}\n🧾 *Customer ID:* ${customerId}`
+        `💰 *INITIAL PAYMENT SUCCESSFUL*\n━━━━━━━━━━━━━━━\n🕒 *Time:* ${timeCET} (CET)\n🏦 *Source:* Mollie\n📧 *Email:* ${email}\n👤 *Name:* ${name}\n📦 *Plan:* ${planType}\n💵 *Amount:* ${currency} ${amount}\n🆔 *Payment ID:* ${payment.id}\n🧾 *Customer ID:* ${customerId}\n⏳ Waiting 8 seconds before creating subscription...`
       );
+
+      // 🕗 Delay 8s to allow Mollie mandate creation
+      await new Promise(resolve => setTimeout(resolve, 8000));
 
       // 🔄 Auto-create subscription
       const subRes = await fetch(
@@ -85,11 +90,19 @@ export default async function handler(req, res) {
       );
 
       const subscription = await subRes.json();
-      console.log("✅ Subscription created:", subscription.id || subscription);
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
 
-      await sendTelegram(
-        `🧾 *SUBSCRIPTION STARTED*\n━━━━━━━━━━━━━━━\n🕒 *Time:* ${timeCET} (CET)\n🏦 *Source:* Mollie\n📧 *Email:* ${email}\n👤 *Name:* ${name}\n📦 *Plan:* ${planType}\n💳 *Amount:* ${currency} ${amount}\n🧾 *Subscription ID:* ${subscription.id || "N/A"}\n🆔 *Customer ID:* ${customerId}`
-      );
+      if (subscription.id) {
+        console.log(`✅ Subscription created in ${duration}s: ${subscription.id}`);
+        await sendTelegram(
+          `🧾 *SUBSCRIPTION STARTED*\n━━━━━━━━━━━━━━━\n🕒 *Time:* ${timeCET} (CET)\n🏦 *Source:* Mollie\n📧 *Email:* ${email}\n👤 *Name:* ${name}\n📦 *Plan:* ${planType}\n💳 *Amount:* ${currency} ${amount}\n🧾 *Subscription ID:* ${subscription.id}\n🆔 *Customer ID:* ${customerId}\n⏱ *Execution:* ${duration}s`
+        );
+      } else {
+        console.error("❌ Subscription creation failed:", subscription);
+        await sendTelegram(
+          `🚫 *SUBSCRIPTION CREATION FAILED*\n━━━━━━━━━━━━━━━\n🕒 *Time:* ${timeCET} (CET)\n📧 *Email:* ${email}\n👤 *Name:* ${name}\n🧾 *Customer ID:* ${customerId}`
+        );
+      }
     }
 
     // 🔁 2️⃣ Renewal Success
