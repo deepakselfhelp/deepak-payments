@@ -185,7 +185,7 @@ btn.addEventListener("click", async () => {
   if (!valid) { alert("Please fill in all required fields correctly."); return; }
 
   try {
-    const res = await fetch("/api/create-initial-payment", {
+    const res = await fetch("/api/mollie/create-initial-payment", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -226,4 +226,5 @@ btn.addEventListener("click", async () => {
 
 </body>
 </html>
+
 
