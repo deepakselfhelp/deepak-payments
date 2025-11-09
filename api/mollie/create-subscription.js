@@ -1,19 +1,22 @@
-// ✅ Deepak Academy — Create Subscription (called automatically by webhook.js)
-// Works after successful initial payment and mandate confirmation
+// ✅ Deepak Academy — Mollie Create Subscription (Final Version)
+// Called automatically from webhook.js after valid mandate confirmation
 
 export default async function handler(req, res) {
   try {
     const MOLLIE_KEY = process.env.MOLLIE_SECRET_KEY;
-    const { customerId, amount, planType, email, name } = req.body;
+    const { customerId, amount, planType, name, email } = req.body;
 
-    // --- Basic validation ---
+    // 🔒 Validate required fields
     if (!customerId || !amount) {
-      return res.status(400).json({ error: "Missing required fields" });
+      console.error("❌ Missing required fields:", { customerId, amount });
+      return res.status(400).json({ error: "Missing customerId or amount" });
     }
 
-    console.log(`📦 Creating subscription for ${email || "Unknown"} (${customerId})`);
+    // -------------------------------------------------------------------
+    // 1️⃣ Create Subscription (recurring every 1 month)
+    // -------------------------------------------------------------------
+    console.log(`🧾 Creating Mollie subscription for customer: ${customerId}`);
 
-    // --- Step 1: Create the subscription ---
     const subRes = await fetch(
       `https://api.mollie.com/v2/customers/${customerId}/subscriptions`,
       {
@@ -26,16 +29,26 @@ export default async function handler(req, res) {
           amount: { value: amount, currency: "EUR" },
           interval: "1 month",
           description: `${planType || "Deepak Academy"} Monthly Subscription`,
-          metadata: { email, name, planType, createdBy: "webhook_auto" },
+          startDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .split("T")[0], // starts next month
           webhookUrl: "https://checkout.realcoachdeepak.com/api/mollie/webhook",
+          metadata: {
+            name: name || "N/A",
+            email: email || "N/A",
+            planType,
+            type: "subscription",
+          },
         }),
       }
     );
 
     const subscription = await subRes.json();
 
-    // --- Step 2: Validate Mollie response ---
-    if (!subscription?.id) {
+    // -------------------------------------------------------------------
+    // 2️⃣ Validate and Respond
+    // -------------------------------------------------------------------
+    if (subRes.status !== 201 || !subscription?.id) {
       console.error("❌ Subscription creation failed:", subscription);
       return res.status(400).json({
         error: "Subscription creation failed",
@@ -43,12 +56,10 @@ export default async function handler(req, res) {
       });
     }
 
-    console.log(`✅ Subscription Created: ${subscription.id} for ${email}`);
+    console.log(`✅ Subscription Created: ${subscription.id}`);
     res.status(200).json(subscription);
-
   } catch (err) {
     console.error("❌ create-subscription.js error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 }
-
