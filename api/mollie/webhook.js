@@ -1,4 +1,4 @@
-// ✅ /api/mollie/webhook.js — Final Version with Initial Payment Message
+// ✅ /api/mollie/webhook.js — Final Stable Version with Full Telegram Coverage + Emoji Legends + Time Stamps
 export default async function handler(req, res) {
   try {
     const MOLLIE_KEY = process.env.MOLLIE_SECRET_KEY;
@@ -13,6 +13,13 @@ export default async function handler(req, res) {
       "X-Mollie-Request-Id": req.headers["x-mollie-request-id"],
       "X-Mollie-Signature": req.headers["x-mollie-signature"],
       "X-Forwarded-For": req.headers["x-forwarded-for"],
+    });
+
+    // 🕒 Generate formatted CET time
+    const now = new Date();
+    const timeCET = now.toLocaleString("en-GB", {
+      timeZone: "Europe/Berlin",
+      hour12: false,
     });
 
     // ✅ Get full payment details
@@ -31,11 +38,11 @@ export default async function handler(req, res) {
     const amount = payment.amount?.value || "0.00";
     const currency = payment.amount?.currency || "EUR";
     const customerId = payment.customerId;
-    const sequence = payment.sequenceType; // "first" or "recurring"
+    const sequence = payment.sequenceType;
     const status = payment.status;
     const planType = payment.metadata?.planType || "DID Main Subscription";
 
-    // Helper for Telegram
+    // 🔔 Telegram sender
     async function sendTelegram(text) {
       if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
       try {
@@ -53,15 +60,13 @@ export default async function handler(req, res) {
       }
     }
 
-    // 💰 FIRST payment (create subscription)
+    // 💰 1️⃣ Initial Payment Success
     if (status === "paid" && sequence === "first") {
-
-      // 🟢 1️⃣ Send Initial Payment Telegram Message
       await sendTelegram(
-        `🏦 *Source:* Mollie\n💰 *Initial Payment Successful*\n📧 *Email:* ${email}\n👤 *Name:* ${name}\n📦 *Plan:* ${planType}\n💵 *Amount:* ${currency} ${amount}\n🆔 *Payment ID:* ${payment.id}\n🧾 *Customer ID:* ${customerId}`
+        `💰 *INITIAL PAYMENT SUCCESSFUL*\n━━━━━━━━━━━━━━━\n🕒 *Time:* ${timeCET} (CET)\n🏦 *Source:* Mollie\n📧 *Email:* ${email}\n👤 *Name:* ${name}\n📦 *Plan:* ${planType}\n💵 *Amount:* ${currency} ${amount}\n🆔 *Payment ID:* ${payment.id}\n🧾 *Customer ID:* ${customerId}`
       );
 
-      // 🟡 2️⃣ Create Subscription (unchanged)
+      // 🔄 Auto-create subscription
       const subRes = await fetch(
         `https://api.mollie.com/v2/customers/${customerId}/subscriptions`,
         {
@@ -83,25 +88,39 @@ export default async function handler(req, res) {
       console.log("✅ Subscription created:", subscription.id || subscription);
 
       await sendTelegram(
-        `🏦 *Source:* Mollie\n💰 *New Subscription Started*\n📧 *Email:* ${email}\n👤 *Name:* ${name}\n💵 *Amount:* ${currency} ${amount}\n🧾 *Subscription ID:* ${subscription.id || "N/A"}\n🆔 *Customer ID:* ${customerId}`
+        `🧾 *SUBSCRIPTION STARTED*\n━━━━━━━━━━━━━━━\n🕒 *Time:* ${timeCET} (CET)\n🏦 *Source:* Mollie\n📧 *Email:* ${email}\n👤 *Name:* ${name}\n📦 *Plan:* ${planType}\n💳 *Amount:* ${currency} ${amount}\n🧾 *Subscription ID:* ${subscription.id || "N/A"}\n🆔 *Customer ID:* ${customerId}`
       );
     }
 
-    // 🔁 Recurring renewal
+    // 🔁 2️⃣ Renewal Success
     else if (status === "paid" && sequence === "recurring") {
       await sendTelegram(
-        `🔁 *Subscription Renewal Charged*\n📧 *Email:* ${email}\n💵 *Amount:* ${currency} ${amount}\n🧾 *Customer ID:* ${customerId}`
+        `🔁 *RENEWAL CHARGED*\n━━━━━━━━━━━━━━━\n🕒 *Time:* ${timeCET} (CET)\n📧 *Email:* ${email}\n📦 *Plan:* ${planType}\n💵 *Amount:* ${currency} ${amount}\n🧾 *Customer ID:* ${customerId}`
       );
     }
 
-    // ⚠️ Payment failed
-    else if (status === "failed") {
+    // ⚠️ 3️⃣ Renewal Failed
+    else if (status === "failed" && sequence === "recurring") {
       await sendTelegram(
-        `⚠️ *Payment Failed*\n📧 *Email:* ${email}\n💵 *Amount:* ${currency} ${amount}\n🧾 *Customer ID:* ${customerId}`
+        `⚠️ *RENEWAL FAILED*\n━━━━━━━━━━━━━━━\n🕒 *Time:* ${timeCET} (CET)\n📧 *Email:* ${email}\n📦 *Plan:* ${planType}\n💵 *Amount:* ${currency} ${amount}\n🧾 *Customer ID:* ${customerId}`
       );
     }
 
-    // 💤 Fallback for unhandled states
+    // ❌ 4️⃣ Initial Payment Failed
+    else if (status === "failed" && sequence !== "recurring") {
+      await sendTelegram(
+        `❌ *INITIAL PAYMENT FAILED*\n━━━━━━━━━━━━━━━\n🕒 *Time:* ${timeCET} (CET)\n📧 *Email:* ${email}\n📦 *Plan:* ${planType}\n💵 *Amount:* ${currency} ${amount}\n🧾 *Customer ID:* ${customerId}`
+      );
+    }
+
+    // 🚫 5️⃣ Subscription Cancelled
+    else if (body.resource === "subscription" && body.status === "canceled") {
+      await sendTelegram(
+        `🚫 *SUBSCRIPTION CANCELLED*\n━━━━━━━━━━━━━━━\n🕒 *Time:* ${timeCET} (CET)\n📧 *Email:* ${email}\n📦 *Plan:* ${planType}\n🧾 *Customer ID:* ${customerId}`
+      );
+    }
+
+    // 💤 6️⃣ Fallback
     else {
       console.log(`ℹ️ Payment status: ${status}, sequence: ${sequence}`);
     }
