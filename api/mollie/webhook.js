@@ -33,6 +33,18 @@ export default async function handler(req, res) {
       headers: { Authorization: `Bearer ${MOLLIE_KEY}` },
     });
     const payment = await paymentRes.json();
+    // add this block ⬇️
+    const failReason =
+    payment.details?.failureReason ||
+    payment.failureReason ||
+    payment.statusReason ||
+    null;
+
+  if (failReason && (payment.status === "open" || payment.status === "failed")) {
+  await sendTelegram(
+    `⚠️ *PAYMENT FAILED (EARLY DETECTED)*\n━━━━━━━━━━━━━━━\n🕒 *Time:* ${timeCET} (CET)\n🏦 *Source:* Mollie\n📧 *Email:* ${email}\n👤 *Name:* ${name}\n📦 *Plan:* ${planType}\n💬 *Reason:* ${failReason}\n💵 *Amount:* ${currency} ${amount}\n🆔 *Payment ID:* ${payment.id}`
+  );
+}
 
     if (!payment || !payment.id) {
       console.error("❌ Invalid payment payload:", payment);
@@ -162,3 +174,4 @@ export default async function handler(req, res) {
     res.status(500).send("Internal error");
   }
 }
+
