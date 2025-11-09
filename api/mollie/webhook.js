@@ -69,7 +69,7 @@ export default async function handler(req, res) {
       );
 
       // 🕗 Delay 8s to allow Mollie mandate creation
-      await new Promise(resolve => setTimeout(resolve, 16000));
+      await new Promise(resolve => setTimeout(resolve, 8000));
 
       // 🔄 Auto-create subscription
       const subRes = await fetch(
@@ -144,4 +144,5 @@ export default async function handler(req, res) {
     res.status(500).send("Internal error");
   }
 }
+
 
