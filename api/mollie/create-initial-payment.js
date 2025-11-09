@@ -30,9 +30,9 @@ export default async function handler(req, res) {
         amount: { value: initialAmount, currency: "EUR" },
         description: `${planType} Initial Payment`,
         redirectUrl: "https://checkout.realcoachdeepak.com/success.html",
-        webhookUrl: "https://checkout.realcoachdeepak.com/api/webhook",
+        webhookUrl: "https://checkout.realcoachdeepak.com/api/mollie/webhook",
         customerId: customer.id,
-        sequenceType: "oneoff",
+        sequenceType: "first",
         metadata: { name, email, recurringAmount, planType },
       }),
     });
@@ -45,3 +45,4 @@ export default async function handler(req, res) {
     res.status(500).json({ error: "Internal server error" });
   }
 }
+
