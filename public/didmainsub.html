@@ -190,9 +190,8 @@ btn.addEventListener("click", async () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name, email,
-        initialAmount: "29.00",
-        recurringAmount: "29.00",
-        planType: "DID Main Monthly"
+      amount: "29.00",
+      planType: "DID Main Monthly"
       })
     });
     const data = await res.json();
@@ -226,5 +225,6 @@ btn.addEventListener("click", async () => {
 
 </body>
 </html>
+
 
 
