@@ -173,7 +173,7 @@ const btn = document.getElementById("subscribeBtn");
 btn.addEventListener("click", async () => {
   const name = nameInput.value.trim();
   const email = emailInput.value.trim();
-  const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   nameInput.classList.remove("error");
   emailInput.classList.remove("error");
@@ -226,3 +226,4 @@ btn.addEventListener("click", async () => {
 
 </body>
 </html>
+
